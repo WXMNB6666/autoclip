@@ -60,8 +60,8 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app
 
-# 创建非root用户
-RUN groupadd -r autoclip && useradd -r -g autoclip autoclip
+# 创建非root用户（固定 UID/GID，供编排侧 securityContext/fsGroup 使用）
+RUN groupadd -g 1001 autoclip && useradd -u 1001 -g 1001 -M autoclip
 
 # 安装运行时依赖
 RUN apt-get update && apt-get install -y \
@@ -80,6 +80,7 @@ COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # 复制项目文件
 COPY backend/ ./backend/
+COPY deploy/ ./deploy/
 COPY scripts/ ./scripts/
 COPY *.sh ./
 COPY env.example .env
@@ -97,8 +98,8 @@ RUN chmod -R 755 data logs
 # 切换到非root用户
 USER autoclip
 
-# 暴露端口
-EXPOSE 8000 3000
+# 暴露端口（Web 界面与 API 同源，均由 8000 提供）
+EXPOSE 8000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -106,4 +107,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # 启动命令
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "deploy.spa_app:app", "--host", "0.0.0.0", "--port", "8000"]
