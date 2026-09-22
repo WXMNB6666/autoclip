@@ -10,7 +10,7 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
@@ -35,6 +35,10 @@ if DIST_DIR.is_dir():
     # other path falls back to the app shell.
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_files(full_path: str) -> FileResponse:
+        # An unmatched API path is a missing endpoint, not a page: answering with
+        # the HTML shell would hide it from API clients.
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
         candidate = (base_dir / full_path).resolve()
         if full_path and candidate.is_file() and candidate.is_relative_to(base_dir):
             return FileResponse(candidate)
